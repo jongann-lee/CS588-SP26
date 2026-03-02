@@ -34,11 +34,19 @@ def project_point_cloud_to_image(points: np.ndarray, T_cam_velo: np.ndarray, K_c
       3) Filter out invalid points (e.g., z <= 0).
     """
     # ======= STUDENT TODO START (edit only inside this block) =======
-    # TODO(student): implement projection.
+    # Jongann Lee 2026
 
     # Placeholder to keep the script runnable.
     n = points.shape[0]
-    return np.zeros((0, 2), dtype=np.float32), np.zeros((0,), dtype=np.float32), np.zeros((n,), dtype=bool)
+
+    homogeneous_points = np.hstack((points[:, :3], np.ones((n, 1), dtype=np.float32)))
+    point_camera = T_cam_velo @ homogeneous_points.T
+    pre_projected_points = K_cam @ point_camera
+    is_valid = pre_projected_points[2, :] > 0
+    valid_points = pre_projected_points[:, is_valid]
+    valid_projected_points = valid_points / valid_points[2, :]
+
+    return valid_projected_points[:2, :].T, valid_points[2, :], is_valid
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
@@ -52,14 +60,27 @@ def build_blueprint() -> bp.Blueprint:
     # ======= STUDENT TODO START (edit only inside this block) =======
     # TODO(student): implement the full layout.
     # Placeholder minimal layout to keep the script runnable.
+    # Jongan Lee 2026
     view_3d = bp.Spatial3DView(
         origin="world",
         contents=["world/velo", "world/tracklets", "world/cam0", "world/cam2", "world/cam3"],
         name="3D",
     )
-    cam2 = bp.Spatial2DView(origin="world/cam2", contents="$origin/image", name="cam2")
-    cam3 = bp.Spatial2DView(origin="world/cam3", contents="$origin/image", name="cam3")
-    layout = bp.Horizontal(view_3d, bp.Vertical(cam2, cam3, row_shares=[1, 1]), column_shares=[3, 1])
+
+    gps = bp.MapView(origin="world", contents=["world/gps", "world/gps_history"], name="GPS")
+    raw2 = bp.Spatial2DView(origin="world/cam2", contents="$origin/image", name="cam2")
+    raw3 = bp.Spatial2DView(origin="world/cam3", contents="$origin/image", name="cam3")
+
+    overlay2 = bp.Spatial2DView(origin="world/cam2", contents="$origin/overlay", name="cam2 lidar")
+    overlay3 = bp.Spatial2DView(origin="world/cam3", contents="$origin/overlay", name="cam3 lidar")
+    boxes2 = bp.Spatial2DView(origin="world/cam2", contents="$origin/boxes_overlay", name="cam2 boxes")
+    boxes3 = bp.Spatial2DView(origin="world/cam3", contents="$origin/boxes_overlay", name="cam3 boxes")
+
+    right_panel = bp.Vertical(gps, raw2, raw3, row_shares=[2, 1, 1])
+    top_row = bp.Horizontal(view_3d, right_panel, column_shares=[3, 1])
+    bottom_row = bp.Horizontal(overlay2, overlay3, boxes2, boxes3)
+
+    layout = bp.Vertical(top_row, bottom_row, row_shares=[3, 1])
     return bp.Blueprint(layout)
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
@@ -79,8 +100,9 @@ def transform_box_to_cam0(
     # transform into cam0 rectified world
 
     # Edit `center_cam0` and `R_box_cam0` to the correct values
-    center_cam0 = center_velo
-    R_box_cam0 = R_box_velo
+    center_cam0 = T_cam0_velo @ np.hstack((center_velo, 1.0))
+    center_cam0 = center_cam0[:3]
+    R_box_cam0 = T_cam0_velo[:3, :3] @ R_box_velo
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
     return center_cam0, R_box_cam0
@@ -95,7 +117,8 @@ def transform_lidar_to_cam0(pts_velo: np.ndarray, T_cam0_velo: np.ndarray) -> np
     # TODO(student): Transform lidar into world (cam0) coordinates and colorize.
 
     # Placeholder to keep the script runnable.
-    pts_cam0 = pts_velo
+    pts_cam0 = T_cam0_velo @ np.hstack((pts_velo, np.ones((pts_velo.shape[0], 1), dtype=np.float32))).T
+    pts_cam0 = pts_cam0.T
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
     return pts_cam0[:, :3]
