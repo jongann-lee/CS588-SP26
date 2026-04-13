@@ -1,0 +1,20 @@
+{
+  "run_name": "task2_minival_debug",
+  "train_split": "minival",
+  "val_split": "minival",
+  "test_split": "minival",
+  "epochs": 50,
+  "batch_size": 2,
+  "optimizer": "adam",
+  "lr_scheduler": "fixed",
+  "resume_checkpoint": "",
+  "resume_optimizer": false,
+  "eval_every": 1,
+  "fast_eval_axis_aligned": false,
+  "device": "cuda",
+  "tensorboard_log_dir": "outputs/tensorboard/task2_minival_debug",
+  "stdout_log": "outputs/processed_train/task2_minival_debug/stdout.log.txt",
+  "train_wall_time_s": 69.9390090694651,
+  "best_val_mAP": 0.9890109896659851,
+  "test_mAP": 0.9890109896659851
+}

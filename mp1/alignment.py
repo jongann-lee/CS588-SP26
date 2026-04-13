@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from utils.geometry_utils import MapSpec
+from utils.geometry_utils import MapSpec, se2_to_matrix
 
 def world_to_pixel(xy: np.ndarray, map_spec: MapSpec) -> np.ndarray:
     """TODO(Task 0): Convert world coordinates to pixel coordinates.
@@ -27,9 +27,11 @@ def world_to_pixel(xy: np.ndarray, map_spec: MapSpec) -> np.ndarray:
     # 4) use np.int64 for the pixel coordinates
     # 5) make sure to avoid using for loops
 
-    # placeholders 
-    cols = np.zeros_like(xy[:, 0], dtype=np.int64)
-    rows = np.zeros_like(xy[:, 1], dtype=np.int64)
+    # By Jongann Lee
+    centered_xy = xy - np.array([map_spec.x_min, map_spec.y_max])
+    cols = np.floor(centered_xy[:, 0] / map_spec.resolution).astype(np.int64)
+    rows = np.floor(-centered_xy[:, 1] / map_spec.resolution).astype(np.int64)
+
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
@@ -61,6 +63,8 @@ def rasterize_topdown(points_world: list[np.ndarray], map_spec: MapSpec) -> dict
         
         # placeholders
         rc = world_to_pixel(xy, map_spec)
+        outside_map = (rc[:, 0] < 0) | (rc[:, 0] >= shape[0]) | (rc[:, 1] < 0) | (rc[:, 1] >= shape[1])
+        rc = rc[~outside_map]
         rows = rc[:, 0]
         cols = rc[:, 1]
 
@@ -88,6 +92,16 @@ def build_accumulated_map(static_points: list[np.ndarray], poses_se2: np.ndarray
     
     # placeholders
     world_points = [static_points[0]]
+
+    for i in range(1, len(static_points)):
+        pts = static_points[i]
+        augmented_pts = np.hstack([pts[:, :2], np.ones((pts.shape[0], 1))])
+        
+        current_pose = poses_se2[i]
+        current_pose_matrix = se2_to_matrix(current_pose)
+        transformed_pts = current_pose_matrix @ augmented_pts.T
+        transformed_pts_3D = np.hstack([transformed_pts[:2, :].T, pts[:, 2:3]])
+        world_points.append(transformed_pts_3D)
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
 

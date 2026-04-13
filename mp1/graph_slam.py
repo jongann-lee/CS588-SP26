@@ -137,6 +137,7 @@ def solve_graph_slam(
     state = problem.pack_state(problem.initial_poses, problem.initial_landmarks)
     cost_history: list[float] = []
     first_jacobian = None
+    alpha = 1.0
 
     for _ in range(max_iterations):
         r, J, poses, landmarks = build_linear_system(problem, state)
@@ -156,9 +157,14 @@ def solve_graph_slam(
         # 5) Done for you: Assign candidate_state to state and break early if the new cost is similar to the current cost
         # 6) Optional: Add a small step size to dx if needed 
         
-        # placeholder
-        candidate_state = state
-        new_cost = cost + 1.0
+        # By Jongann Lee
+        A = J.T @ J
+        b = -J.T @ r
+        A += damping * np.eye(A.shape[0])
+        dx = np.linalg.solve(A, b)
+        candidate_state = state + alpha * dx
+        candidate_r, _, _, _ = build_linear_system(problem, candidate_state)
+        new_cost = 0.5 * float(np.sum(candidate_r * candidate_r))
 
         # ======= STUDENT TODO END (do not change code outside this block) =======
         

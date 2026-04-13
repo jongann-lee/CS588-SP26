@@ -1,0 +1,23 @@
+{
+  "sequence": "2011_09_26_drive_0005_sync",
+  "frame_start": 0,
+  "frame_end_exclusive": 100,
+  "num_frames": 100,
+  "num_landmarks": 100,
+  "num_motion_edges": 99,
+  "ate_icp_rmse": 0.6786398440827358,
+  "ate_slam_rmse": 0.3439704694338553,
+  "dynamic_ratio_mean": 0.013379777074954113,
+  "sigma_xy": 0.24,
+  "sigma_theta": 0.04,
+  "sigma_d": 0.08,
+  "gn_iters": 50,
+  "gn_damping": 1e-06,
+  "gauss_newton_cost_history": [
+    3715.5592458328138,
+    8.944267311412206,
+    1.4392665979692887,
+    1.4299008387784322,
+    1.4298994547562842
+  ]
+}

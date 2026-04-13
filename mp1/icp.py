@@ -5,7 +5,7 @@ import math
 import numpy as np
 import open3d as o3d
 
-from utils.geometry_utils import se3_to_se2
+from utils.geometry_utils import se3_to_se2, se2_to_matrix, matrix_to_se2
 
 
 def _to_open3d_cloud(points_xyz: np.ndarray):
@@ -58,9 +58,16 @@ def run_pairwise_icp(
     # ======= STUDENT TODO START (edit only inside this block) =======
     # TODO(student): implement pairwise ICP similar to MP0
     
-    # placeholder
-    result = o3d.pipelines.registration.RegistrationResult()
-    result.transformation = np.eye(4, dtype=np.float32)
+    # By Jongann Lee
+    result = o3d.pipelines.registration.registration_icp(
+        source=source,
+        target=target,
+        max_correspondence_distance=max_correspondence_distance,
+        init=np.eye(4, dtype=np.float64),
+        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+        criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=max_iterations),
+
+    )
 
     
     # ======= STUDENT TODO END (do not change code outside this block) =======
@@ -99,8 +106,28 @@ def compute_icp_chains(
     # ======= STUDENT TODO START (edit only inside this block) =======
     # TODO(student): implement ICP chaining and motion edges
     
-    # placeholders
-    icp_poses = np.zeros((num_frames, 3), dtype=np.float64)
+    # By Jongann Lee
+
+    icp_poses = []
+    inital_pose = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+    icp_poses.append(inital_pose)
+    current_pose = se2_to_matrix(inital_pose)
+    for t in range(1, num_frames):
+
+        rel_se2 = run_pairwise_icp(
+            source_points=static_points[t],
+            target_points=static_points[t - 1],
+            voxel_size=voxel_size,
+            max_correspondence_distance=max_correspondence_distance,
+            max_iterations=max_iterations,
+        )
+        edges.append((t - 1, t, rel_se2[0], rel_se2[1], rel_se2[2]))
+        rel_se2_as_matrix = se2_to_matrix(rel_se2)
+        current_pose = current_pose @ rel_se2_as_matrix
+        abs_se2 = matrix_to_se2(current_pose)
+        icp_poses.append(abs_se2)
+
+    icp_poses = np.array(icp_poses, dtype=np.float64)
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
 

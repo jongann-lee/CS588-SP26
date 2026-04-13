@@ -299,6 +299,41 @@ def encode_targets(
     #        rot[out_count]       = [sin(yaw), cos(yaw)]
     #        cls_targets[out_count] = cls_id
 
+    # By Jongann Lee
+
+
+    out_count = 0
+
+    for i in range(min(boxes.shape[0], max_objs)):
+        x, y, z, l, w, h, yaw = boxes[i]
+        cls_id = class_ids[i]
+
+        u_f, v_f, valid = metric_to_output_grid(np.array([x]), np.array([y]), bev_cfg)
+        if not valid[0]:
+            continue
+
+        u_i, v_i = int(u_f[0]), int(v_f[0])
+        obj_w = l / bev_cfg.output_resolution
+        obj_h = w / bev_cfg.output_resolution
+        radius = max(
+            target_cfg.min_gaussian_radius,
+            int(gaussian_radius((obj_h, obj_w), target_cfg.gaussian_overlap)),
+        )
+        draw_gaussian(heatmap[cls_id], center=(u_i, v_i), radius=radius)
+
+        inds[out_count] = v_i * w_out + u_i
+        mask[out_count] = 1
+        reg[out_count] = [u_f[0] - u_i, v_f[0] - v_i]
+        height[out_count, 0] = z
+        if target_cfg.use_log_dims:
+            dims[out_count] = np.log([l, w, h])
+        else:
+            dims[out_count] = [l, w, h]
+        rot[out_count] = [np.sin(yaw), np.cos(yaw)]
+        cls_targets[out_count] = cls_id
+        
+        out_count += 1
+
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
     return {
@@ -343,9 +378,31 @@ def decode_targets(
     #   7. Stack into (N,7) and return with class ids and unit scores.
 
     # placeholders
-    boxes = np.zeros((0, 7), dtype=np.float32)
-    classes = np.zeros((0,), dtype=np.int64)
-    scores = np.zeros((0,), dtype=np.float32)
+
+    # By Jongann Lee
+    valid_mask = encoded["mask"] == 1
+    valid_inds = encoded["inds"][valid_mask]
+    w_out = bev_cfg.output_grid_size[1]
+    ys = valid_inds // w_out
+    xs = valid_inds % w_out
+
+    u = xs + encoded["reg"][valid_mask][:, 0]
+    v = ys + encoded["reg"][valid_mask][:, 1]
+
+    x, y = output_grid_to_metric(u, v, bev_cfg)
+    z = encoded["height"][valid_mask, 0]
+
+    if target_cfg.use_log_dims:
+        lwh = np.exp(encoded["dims"][valid_mask])
+    else:
+        lwh = encoded["dims"][valid_mask]
+
+    yaw = np.arctan2(encoded["rot"][valid_mask][:, 0], encoded["rot"][valid_mask][:, 1])
+
+    boxes = np.stack([x, y, z, lwh[:, 0], lwh[:, 1], lwh[:, 2], yaw], axis=1)
+    classes = encoded["cls_ids"][valid_mask]
+    scores = np.ones((boxes.shape[0],), dtype=np.float32)  #
+
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
     return boxes, classes, scores
@@ -385,8 +442,10 @@ def _nms_heatmap(heatmap: torch.Tensor, kernel: int = 3) -> torch.Tensor:
     #   3. Build a keep mask: pixels where pooled == original.
     #   4. Return heatmap * keep (zeros out non-maxima).
 
-    # placeholder — passes heatmap through unchanged (no suppression)
-    return heatmap
+    pad = (kernel - 1) // 2
+    hmax = F.max_pool2d(heatmap, kernel_size=kernel, stride=1, padding=pad)
+    keep = (hmax == heatmap).float()
+    return heatmap * keep
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -539,16 +598,42 @@ def decode_predictions(
     #   8. Recover yaw: torch.atan2(rot[...,0], rot[...,1])
     #   9. Filter by score_threshold; stack into (N,7) boxes per batch item.
 
-    # placeholders
+    
     bsz = list(preds.values())[0].shape[0]
-    out = [
-        {
-            "boxes": np.zeros((0, 7), dtype=np.float32),
-            "scores": np.zeros((0,), dtype=np.float32),
-            "classes": np.zeros((0,), dtype=np.int64),
-        }
-        for _ in range(bsz)
-    ]
+    h_out, w_out = bev_cfg.output_grid_size
+    res = bev_cfg.output_resolution
+
+    hm = torch.sigmoid(preds["heatmap"]).clamp(1e-4, 1 - 1e-4)
+    hm = _nms_heatmap(hm)
+
+    scores, inds, clses, ys, xs = _topk(hm, k=topk)
+
+    reg = _transpose_and_gather_feat(preds["reg"], inds)
+    height = _transpose_and_gather_feat(preds["height"], inds)
+    dims = _transpose_and_gather_feat(preds["dims"], inds)
+    rot = _transpose_and_gather_feat(preds["rot"], inds)
+
+    xs = xs + reg[..., 0]
+    ys = ys + reg[..., 1]
+
+    x = bev_cfg.x_min + xs * res
+    y = bev_cfg.y_min + ((h_out - 1) - ys) * res
+    z = height[..., 0]
+
+    if target_cfg.use_log_dims:
+        dims = torch.exp(dims)
+
+    yaw = torch.atan2(rot[..., 0], rot[..., 1])
+
+    out = []
+    for b in range(bsz):
+        mask = scores[b] > score_threshold
+        boxes_b = torch.stack([x[b], y[b], z[b], dims[b,:,0], dims[b,:,1], dims[b,:,2], yaw[b]], dim=1)
+        out.append({
+            "boxes": boxes_b[mask].detach().cpu().numpy().astype(np.float32),
+            "scores": scores[b][mask].detach().cpu().numpy().astype(np.float32),
+            "classes": clses[b][mask].detach().cpu().numpy().astype(np.int64),
+        })
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
     return out

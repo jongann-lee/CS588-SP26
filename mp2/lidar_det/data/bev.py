@@ -114,10 +114,34 @@ def rasterize_points_to_bev(points: np.ndarray, cfg: BEVConfig) -> np.ndarray:
     #     will be non-zero in empty cells due to the z_min offset.
 
 
-    # placeholder
-    c = len(cfg.channels)
-    h, w = cfg.grid_size
-    return np.zeros((c, h, w), dtype=np.float32)
+    # By Jongann Lee
+
+    row, col, valid = metric_to_grid(points[:, 0], points[:, 1], cfg)
+    valid_z = (points[:, 2] >= cfg.z_min) & (points[:, 2] <= cfg.z_max)
+    valid &= valid_z
+    W = cfg.grid_size[1]
+    flat_idx = row[valid] * W + col[valid]
+
+    z_min, z_max = cfg.z_min, cfg.z_max
+    cell_counts = np.bincount(flat_idx, minlength=cfg.grid_size[0] * cfg.grid_size[1])
+    max_height = np.full(cfg.grid_size[0] * cfg.grid_size[1], z_min, dtype=np.float32)
+    np.maximum.at(max_height, flat_idx, points[valid, 2])
+    mean_height = np.bincount(flat_idx, weights=points[valid, 2], minlength=cfg.grid_size[0] * cfg.grid_size[1]) / np.maximum(cell_counts, 1)
+
+    max_height = (max_height - z_min) / (z_max - z_min)
+    mean_height = (mean_height - z_min) / (z_max - z_min)
+
+    intensity = np.bincount(flat_idx, weights=points[valid, 3], minlength=cfg.grid_size[0] * cfg.grid_size[1]) / np.maximum(cell_counts, 1)
+    np.clip(intensity, 0.0, 1.0, out=intensity)
+    density = np.log1p(cell_counts) / np.log1p(64)
+    np.clip(density, 0.0, 1.0, out=density)
+
+    output = np.stack([max_height, mean_height, intensity, density]).reshape((4, *cfg.grid_size))
+    
+    empty_mask = cell_counts == 0
+    output[:, empty_mask.reshape(cfg.grid_size)] = 0.0
+
+    return output
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 

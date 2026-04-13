@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("command", nargs="?", default="all", choices=["gt_align", "icp", "all"])
     
     # dataset 
-    parser.add_argument("--data_root", default="data/kitti_raw", help="KITTI root")
+    parser.add_argument("--data_root", default="../data/kitti_raw", help="KITTI root")
     parser.add_argument("--out_dir", default="./outputs")
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--end", type=int, default=100, help="Exclusive end frame.")

@@ -1,0 +1,9 @@
+split=test
+loss_total=2.444188
+loss_heatmap=1.404145
+loss_reg=0.253258
+loss_height=0.123144
+loss_dims=0.237247
+loss_rot=0.426394
+mAP=0.634720
+class=Car AP=0.634720 num_gt=5444 num_det=6318

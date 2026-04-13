@@ -207,4 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 # Data
-.mp0/data/
+.data/
+./mp2/data/
+
+# DS_Store
+.DS_Store
