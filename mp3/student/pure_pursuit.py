@@ -29,7 +29,7 @@ import numpy as np
 @dataclass
 class PurePursuitConfig:
     lookahead_dist: float = 10.0
-    speed_gain:     float = 1.0
+    speed_gain:     float = 0.5
     max_accel:      float = 3.0
     min_accel:      float = -5.0
     max_curvature:  float = 0.5
@@ -74,7 +74,15 @@ class PurePursuitController:
         #   4. Return the waypoint position and speed at that index.
 
         # placeholder -- always returns the last waypoint
-        return path_xy[-1], float(path_speeds[-1])
+
+        Euclidian_distances = np.linalg.norm(path_xy - ego_xy, axis=1)
+        lookahead_indices = np.where(Euclidian_distances >= self.cfg.lookahead_dist)[0]
+        if len(lookahead_indices) > 0:
+            first_lookahead_index = lookahead_indices[0]
+            return path_xy[first_lookahead_index], float(path_speeds[first_lookahead_index])
+        else:
+            return path_xy[-1], float(path_speeds[-1])
+
         # ======= STUDENT TODO END (do not change code outside this block) =======
 
     def compute_steering(
@@ -111,7 +119,16 @@ class PurePursuitController:
         #   5. Clamp kappa to [-max_curvature, +max_curvature] and return it.
 
         # placeholder -- zero steering (vehicle drives straight)
-        return 0.0
+
+        delta_xy = lookahead_xy - ego_xy
+        rot_matrix = np.array([[np.cos(ego_yaw), np.sin(ego_yaw)],
+                               [-np.sin(ego_yaw), np.cos(ego_yaw)]])
+        delta_xy = rot_matrix @ delta_xy
+        alpha = np.arctan2(delta_xy[1], delta_xy[0])
+        kappa = 2 * np.sin(alpha) / self.cfg.lookahead_dist
+        kappa = np.clip(kappa, -self.cfg.max_curvature, self.cfg.max_curvature)
+        return kappa
+
         # ======= STUDENT TODO END (do not change code outside this block) =======
 
     def compute_acceleration(
@@ -141,5 +158,10 @@ class PurePursuitController:
         #   3. Clamp to [min_accel, max_accel] and return.
 
         # placeholder -- zero acceleration (vehicle coasts to a stop)
-        return 0.0
+
+        delta_speed = target_speed - current_speed
+        accel_command = self.cfg.speed_gain * delta_speed
+        accel_command = np.clip(accel_command, self.cfg.min_accel, self.cfg.max_accel)
+
+        return accel_command    
         # ======= STUDENT TODO END (do not change code outside this block) =======

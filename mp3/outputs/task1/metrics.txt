@@ -1,0 +1,12 @@
+task=1
+scene=0 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=373.6
+scene=1 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=195.6
+scene=2 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=279.7
+scene=3 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=119.1
+scene=4 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=206.0
+scene=5 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=99.9
+scene=6 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=380.0
+scene=7 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=323.2
+scene=8 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=148.5
+scene=9 PASS offsets=OK speeds=OK fwd_progress=OK lateral_conv=OK lateral_coverage=OK speed_coverage=OK path_m=300.1
+PASS — all scenarios pass all checks.

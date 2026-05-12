@@ -1,0 +1,16 @@
+task=3
+scene=0 collision=False end_dist=0.00m tta=2.5s rms_jerk=0.032 t=224.6ms/step
+scene=1 collision=False end_dist=0.00m tta=7.1s rms_jerk=0.773 t=204.5ms/step
+scene=2 collision=False end_dist=0.00m tta=2.7s rms_jerk=0.028 t=138.9ms/step
+scene=3 collision=False end_dist=46.00m tta=N/A rms_jerk=0.795 t=242.5ms/step
+scene=4 collision=False end_dist=26.45m tta=N/A rms_jerk=0.660 t=156.6ms/step
+scene=5 collision=False end_dist=45.00m tta=N/A rms_jerk=0.784 t=225.9ms/step
+scene=6 collision=False end_dist=0.00m tta=6.1s rms_jerk=1.431 t=374.0ms/step
+scene=7 collision=True end_dist=43.00m tta=N/A rms_jerk=0.750 t=182.8ms/step
+scene=8 collision=False end_dist=0.00m tta=5.8s rms_jerk=1.383 t=264.3ms/step
+scene=9 collision=False end_dist=0.00m tta=2.5s rms_jerk=0.038 t=244.2ms/step
+collision_rate=0.100
+mean_end_dist_m=16.045
+mean_sim_tta_s=4.450  (completed episodes only)
+rms_jerk=0.667
+mean_policy_time_s=0.2258

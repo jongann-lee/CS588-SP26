@@ -106,8 +106,26 @@ class QuinticPolynomial:
         #   5. Solve M · [a3, a4, a5]ᵀ = r with a linear solver.
         #   6. Return QuinticPolynomial with coefficients [a0, a1, a2, a3, a4, a5].
 
-        # placeholder — returns a zero polynomial (trajectory stays at start)
-        return QuinticPolynomial(np.zeros(6))
+        # By Jongann Lee
+
+        p0 = start[0]
+        v0 = start[1]
+        a0_start = start[2]
+        p1 = end[0]
+        v1 = end[1]
+        a1_end = end[2]
+
+        a0, a1, a2 = p0, v0, a0_start / 2
+        M = np.array([[horizon_s**3, horizon_s**4, horizon_s**5],
+                      [3 * horizon_s**2, 4 * horizon_s**3, 5 * horizon_s**4],
+                      [6 * horizon_s, 12 * horizon_s**2, 20 * horizon_s**3]])
+        r = np.array([p1 - a0 - a1 * horizon_s - a2 * horizon_s**2,
+                      v1 - a1 - 2 * a2 * horizon_s,
+                      a1_end - 2 * a2])
+        [a3, a4, a5] = np.linalg.solve(M, r)
+        coeffs = np.array([a0, a1, a2, a3, a4, a5])
+
+        return QuinticPolynomial(coeffs)
         # ======= STUDENT TODO END (do not change code outside this block) =======
 
     def evaluate(self, t: np.ndarray, order: int = 0) -> np.ndarray:
@@ -134,8 +152,21 @@ class QuinticPolynomial:
         #   2. Return the polynomial (order=0) or the appropriate derivative
         #      (order=1, 2, or 3) evaluated at all time samples t.
 
-        # placeholder — returns zeros
-        return np.zeros_like(np.asarray(t, dtype=float))
+        # By Jongann Lee
+
+        a0, a1, a2, a3, a4, a5 = self.coeffs
+
+        if order == 0:
+            return a0 + (a1 * t) + (a2 * t**2) + (a3 * t**3) + (a4 * t**4) + (a5 * t**5)    
+        elif order == 1:
+            return a1 + (2 * a2 * t) + (3 * a3 * t**2) + (4 * a4 * t**3) + (5 * a5 * t**4)
+        elif order == 2:
+            return (2 * a2) + (6 * a3 * t) + (12 * a4 * t**2) + (20 * a5 * t**3)
+        elif order == 3:
+            return (6 * a3) + (24 * a4 * t) + (60 * a5 * t**2)
+        else:
+            raise ValueError("order must be 0, 1, 2, or 3")
+
         # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -200,8 +231,20 @@ class QuarticPolynomial:
         #   5. Solve M · [a3, a4]ᵀ = r with a linear solver.
         #   6. Return QuarticPolynomial with coefficients [a0, a1, a2, a3, a4].
 
-        # placeholder — returns a zero polynomial
-        return QuarticPolynomial(np.zeros(5))
+        # By Jongann Lee
+
+        p0, v0, a0_start = start
+        a0, a1, a2 = p0, v0, a0_start/2
+
+        M = np.array([[3 * horizon_s**2, 4 * horizon_s**3],
+                      [6 * horizon_s, 12 * horizon_s**2]])
+        r = np.array([end_speed - a1 - 2 * a2 * horizon_s,
+                      end_accel - 2 * a2])
+        [a3, a4] = np.linalg.solve(M, r)
+
+        coeffs = np.array([a0, a1, a2, a3, a4])
+
+        return QuarticPolynomial(coeffs)
         # ======= STUDENT TODO END (do not change code outside this block) =======
 
     def evaluate(self, t: np.ndarray, order: int = 0) -> np.ndarray:
@@ -228,8 +271,20 @@ class QuarticPolynomial:
         #   2. Return the polynomial (order=0) or the appropriate derivative
         #      (order=1, 2, or 3) evaluated at all time samples t.
 
-        # placeholder — returns zeros
-        return np.zeros_like(np.asarray(t, dtype=float))
+        # By Jongann Lee
+
+        a0, a1, a2, a3, a4 = self.coeffs
+
+        if order == 0:
+            return a0 + (a1 * t) + (a2 * t**2) + (a3 * t**3) + (a4 * t**4)    
+        elif order == 1:
+            return a1 + (2 * a2 * t) + (3 * a3 * t**2) + (4 * a4 * t**3)
+        elif order == 2:
+            return (2 * a2) + (6 * a3 * t) + (12 * a4 * t**2) 
+        elif order == 3:
+            return (6 * a3) + (24 * a4 * t)
+        else:
+            raise ValueError("order must be 0, 1, 2, or 3")
         # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -305,23 +360,73 @@ def sample_trajectories(
     target_offsets = reference_path.lane_offsets
 
     # ======= STUDENT TODO START (edit only inside this block) =======
-    # TODO(student): implement sample_trajectories
+    # By Jongann Lee
+
+    list_of_trajectories = []
+
+    # Step 2
+    s_arr, d_arr = project_to_frenet(reference_path, ego_xy)
+    s0, d0 = float(s_arr[0]), float(d_arr[0])
+
+    # Step 3
+    _, ref_heading_arr = frenet_to_cartesian(reference_path, np.array([s0]), np.array([0.0]))
+    ref_heading = float(ref_heading_arr[0])
+    heading_error = ego_yaw - ref_heading
+    s_dot0 = ego_speed * np.cos(heading_error)
+    d_dot0 = ego_speed * np.sin(heading_error)
+
+    # Step 6
+    for d_target in target_offsets:
+        # Fit lateral quintic polynomial
+        lat_poly = QuinticPolynomial.fit(
+            start=(d0, d_dot0, 0.0),
+            end=(d_target, 0.0, 0.0),
+            horizon_s=horizon_s,
+        )
+        d = lat_poly.evaluate(times, order=0)
+        d_dot = lat_poly.evaluate(times, order=1)
+        d_jerk = lat_poly.evaluate(times, order=3)
+
+        for v_target in target_speeds:
+            for a_target in target_accels:
+                # Fit longitudinal quartic polynomial
+                lon_poly = QuarticPolynomial.fit(
+                    start=(s0, s_dot0, 0.0),
+                    end_speed=v_target,
+                    end_accel=a_target,
+                    horizon_s=horizon_s,
+                )
+                s = lon_poly.evaluate(times, order=0)
+                s_dot = np.maximum(lon_poly.evaluate(times, order=1), 0.0)  # no reversing
+                s_jerk = lon_poly.evaluate(times, order=3)
+
+                [xy, center_heading] = frenet_to_cartesian(reference_path, s, d)
+                yaw = center_heading + np.arctan2(d_dot, np.maximum(s_dot, 1e-3))
+                velocity = np.gradient(xy, times, axis=0)
+                speed = np.linalg.norm(velocity, axis=1)
+                accel = np.gradient(speed, times)
+                yaw_rate = np.gradient(yaw, times)
+                curvature = yaw_rate / (np.maximum(speed, 1e-3))
+    
+                list_of_trajectories.append(TrajectorySample(
+                    times=times,
+                    s=s,
+                    d=d,
+                    x=xy[:, 0],
+                    y=xy[:, 1],
+                    yaw=yaw,
+                    speed=speed,
+                    accel=accel,
+                    curvature=curvature,
+                    s_jerk=s_jerk,
+                    d_jerk=d_jerk,
+                    target_offset=float(d_target),
+                    target_speed=float(v_target),
+                    target_accel=float(a_target)
+                ))
+                
+
 
     # placeholder — returns an empty list (planner receives no candidates)
-    return [TrajectorySample(
-        times=times,
-        s=np.zeros_like(times),
-        d=np.zeros_like(times),
-        x=np.zeros_like(times),
-        y=np.zeros_like(times),
-        yaw=np.zeros_like(times),
-        speed=np.zeros_like(times),
-        accel=np.zeros_like(times),
-        curvature=np.zeros_like(times),
-        s_jerk=np.zeros_like(times),
-        d_jerk=np.zeros_like(times),
-        target_offset=float(target_offsets[0]),
-        target_speed=float(target_speeds[0]),
-        target_accel=float(target_accels[0])
-    )]
+    return list_of_trajectories
     # ======= STUDENT TODO END (do not change code outside this block) =======

@@ -54,11 +54,11 @@ class CostConfig:
         w_feasibility: Weight for the feasibility cost.
         w_centerline:  Weight for the centerline deviation cost.
     """
-    w_collision:   float = 1.0
+    w_collision:   float = 10.0
     w_goal:        float = 1.0
-    w_jerk:        float = 1.0
+    w_jerk:        float = 0.1
     w_feasibility: float = 1.0
-    w_centerline:  float = 1.0
+    w_centerline:  float = 0.5
 
 
 # ── TODO 2.1 — Collision cost ──────────────────────────────────────────────────
@@ -94,7 +94,15 @@ def collision_cost(
     #   2. Return 1.0 if any element of the mask is True, else 0.0.
 
     # placeholder — always reports no collision (unsafe — implement this first!)
-    return 0.0
+    # By Jongann Lee
+
+    has_collisions = geometric_collision_mask(trajectory, predictions, ego_size, ego_id)
+
+    if np.any(has_collisions):
+        return 1.0
+    else:
+        return 0.0
+    
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -128,7 +136,14 @@ def goal_cost(
     #   3. Return the non-negative shortfall between the clipped goal and the end.
 
     # placeholder — zero cost (planner receives no incentive to make progress)
-    return 0.0
+    # By Jongann Lee
+
+    s0 = trajectory.s[0]
+    s_end= trajectory.s[-1]
+
+    s_local = min(reference_path.goal_s, s0 + 35.0)
+
+    return max(s_local-s_end, 0.0)
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -157,7 +172,11 @@ def jerk_cost(trajectory: TrajectorySample) -> float:
     #   3. Return the result as a float.
 
     # placeholder — zero jerk cost
-    return 0.0
+
+    s_jerk = trajectory.s_jerk
+    d_jerk = trajectory.d_jerk
+
+    return float(np.mean(s_jerk**2 + d_jerk**2))
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -189,7 +208,14 @@ def feasibility_cost(trajectory: TrajectorySample) -> float:
     #   3. Return the sum of all three mean-squared penalties.
 
     # placeholder — zero feasibility cost
-    return 0.0
+
+    v = trajectory.speed
+    a = trajectory.accel
+    k = trajectory.curvature
+
+    return float(np.mean(np.maximum(v - 25.0, 0.0)**2) +
+                 np.mean(np.maximum(np.abs(a) - 6.0, 0.0)**2) +
+                 np.mean(np.maximum(np.abs(k) - 0.25, 0.0)**2))
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -223,7 +249,11 @@ def centerline_cost(
     #   3. Return the sum as a float.
 
     # placeholder — zero centerline cost
-    return 0.0
+
+    d = trajectory.d
+    d_hat = trajectory.target_offset
+
+    return float(np.mean(d**2) + 0.5 * d_hat**2)
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -274,5 +304,48 @@ def evaluate(
     #   5. Return a NumPy array of shape (N,) with one total cost per candidate.
 
     # placeholder
-    return np.zeros(len(trajectories), dtype=float)
+
+
+    if weights is None:
+        weights = CostConfig()  # default to equal weights (not tuned)
+        weights = np.array([
+            weights.w_collision,
+            weights.w_goal,
+            weights.w_jerk,
+            weights.w_feasibility,
+            weights.w_centerline,
+        ], dtype=float)
+    else:
+        weights = np.array([
+            weights.w_collision,
+            weights.w_goal,
+            weights.w_jerk,
+            weights.w_feasibility,
+            weights.w_centerline,
+        ], dtype=float)
+
+    sdc_mask = np.asarray(state.object_metadata.is_sdc).astype(bool)
+    ego_idx = int(np.flatnonzero(sdc_mask)[0])
+
+    ego_length = float(state.sim_trajectory.length[ego_idx, state.timestep])
+    ego_width = float(state.sim_trajectory.width[ego_idx, state.timestep])
+    ego_id = int(state.object_metadata.ids[ego_idx])
+
+    traj_cost_list = []
+
+    for candidate_trajectory in trajectories:
+        c_collision = collision_cost(candidate_trajectory, predictions, (ego_length, ego_width), ego_id)
+        c_goal = goal_cost(candidate_trajectory, reference_path)
+        c_jerk = jerk_cost(candidate_trajectory)
+        c_feasibility = feasibility_cost(candidate_trajectory)
+        c_centerline = centerline_cost(candidate_trajectory, reference_path)
+
+        candidate_traj_cost = (weights[0] * c_collision +
+                             weights[1] * c_goal +
+                             weights[2] * c_jerk +
+                             weights[3] * c_feasibility +
+                             weights[4] * c_centerline)
+        traj_cost_list.append(candidate_traj_cost)
+        
+    return np.asarray(traj_cost_list)
     # ======= STUDENT TODO END (do not change code outside this block) =======
